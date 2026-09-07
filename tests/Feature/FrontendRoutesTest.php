@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class FrontendRoutesTest extends TestCase
 {
+    use RefreshDatabase;
+    protected $seed = true;
     public function test_root_redirects_to_pos(): void
     {
         $response = $this->get('/');
