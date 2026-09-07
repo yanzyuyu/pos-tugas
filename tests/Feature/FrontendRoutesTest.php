@@ -72,4 +72,91 @@ class FrontendRoutesTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Laporan Penjualan & Omzet', false);
     }
+
+    public function test_auth_admin_login_redirects_to_dashboard(): void
+    {
+        $response = $this->post('/login', [
+            'email' => 'admin@kopisenja.id',
+            'password' => 'password',
+        ]);
+
+        $response->assertRedirect('/admin/dashboard');
+        $this->assertAuthenticated();
+    }
+
+    public function test_auth_kasir_login_redirects_to_pos(): void
+    {
+        $response = $this->post('/login', [
+            'email' => 'kasir@kopisenja.id',
+            'password' => 'password',
+        ]);
+
+        $response->assertRedirect('/pos');
+        $this->assertAuthenticated();
+    }
+
+    public function test_pos_checkout_creates_transaction_and_decrements_stock(): void
+    {
+        $user = \App\Models\User::where('role', 'kasir')->first();
+        $product = \App\Models\Product::first();
+        $initialStock = $product->stock;
+
+        $response = $this->actingAs($user)->post('/pos/checkout', [
+            'cart' => [
+                [
+                    'id' => $product->id,
+                    'quantity' => 2,
+                    'price' => $product->price,
+                    'notes' => 'Less sugar',
+                ],
+            ],
+            'payment_method' => 'tunai',
+            'paid_amount' => 50000,
+        ]);
+
+        $response->assertRedirect('/pos');
+
+        $this->assertDatabaseHas('transactions', [
+            'user_id' => $user->id,
+            'payment_method' => 'tunai',
+        ]);
+
+        $transaction = \App\Models\Transaction::latest()->first();
+        $this->assertNotNull($transaction);
+        $this->assertStringStartsWith('INV-', $transaction->invoice_number);
+
+        $this->assertDatabaseHas('transaction_details', [
+            'transaction_id' => $transaction->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'notes' => 'Less sugar',
+        ]);
+
+        $product->refresh();
+        $this->assertEquals($initialStock - 2, $product->stock);
+    }
+
+    public function test_pos_history_displays_persisted_transaction(): void
+    {
+        $user = \App\Models\User::where('role', 'kasir')->first();
+        $product = \App\Models\Product::first();
+
+        $this->actingAs($user)->post('/pos/checkout', [
+            'cart' => [
+                [
+                    'id' => $product->id,
+                    'quantity' => 1,
+                    'price' => $product->price,
+                ],
+            ],
+            'payment_method' => 'qris',
+            'paid_amount' => $product->price,
+        ]);
+
+        $transaction = \App\Models\Transaction::latest()->first();
+
+        $response = $this->actingAs($user)->get('/pos/history');
+        $response->assertStatus(200);
+        $response->assertSee($transaction->invoice_number);
+    }
 }
