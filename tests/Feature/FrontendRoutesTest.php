@@ -159,4 +159,123 @@ class FrontendRoutesTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee($transaction->invoice_number);
     }
+
+    public function test_admin_can_crud_product(): void
+    {
+        $admin = \App\Models\User::where('role', 'admin')->first();
+
+        $createResponse = $this->actingAs($admin)->post('/admin/products', [
+            'name' => 'Kopi Tubruk Spesial',
+            'category' => 'Kopi Panas',
+            'price' => 12000,
+            'stock' => 50,
+            'status' => 'Tersedia',
+        ]);
+        $createResponse->assertRedirect('/admin/products');
+
+        $this->assertDatabaseHas('products', [
+            'name' => 'Kopi Tubruk Spesial',
+            'price' => 12000,
+        ]);
+
+        $product = \App\Models\Product::where('name', 'Kopi Tubruk Spesial')->first();
+
+        $updateResponse = $this->actingAs($admin)->put('/admin/products/' . $product->id, [
+            'name' => 'Kopi Tubruk Mantap',
+            'category' => 'Kopi Panas',
+            'price' => 14000,
+            'stock' => 40,
+            'status' => 'Tersedia',
+        ]);
+        $updateResponse->assertRedirect('/admin/products');
+
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'name' => 'Kopi Tubruk Mantap',
+            'price' => 14000,
+        ]);
+
+        $deleteResponse = $this->actingAs($admin)->delete('/admin/products/' . $product->id);
+        $deleteResponse->assertRedirect('/admin/products');
+
+        $this->assertDatabaseMissing('products', [
+            'id' => $product->id,
+        ]);
+    }
+
+    public function test_admin_can_crud_category(): void
+    {
+        $admin = \App\Models\User::where('role', 'admin')->first();
+
+        $createResponse = $this->actingAs($admin)->post('/admin/categories', [
+            'name' => 'Signature Blend',
+            'slug' => 'signature-blend',
+        ]);
+        $createResponse->assertRedirect('/admin/categories');
+
+        $this->assertDatabaseHas('categories', [
+            'name' => 'Signature Blend',
+            'slug' => 'signature-blend',
+        ]);
+
+        $category = \App\Models\Category::where('slug', 'signature-blend')->first();
+
+        $updateResponse = $this->actingAs($admin)->put('/admin/categories/' . $category->id, [
+            'name' => 'Signature Brews',
+            'slug' => 'signature-brews',
+        ]);
+        $updateResponse->assertRedirect('/admin/categories');
+
+        $this->assertDatabaseHas('categories', [
+            'id' => $category->id,
+            'name' => 'Signature Brews',
+        ]);
+
+        $deleteResponse = $this->actingAs($admin)->delete('/admin/categories/' . $category->id);
+        $deleteResponse->assertRedirect('/admin/categories');
+
+        $this->assertDatabaseMissing('categories', [
+            'id' => $category->id,
+        ]);
+    }
+
+    public function test_admin_can_crud_user(): void
+    {
+        $admin = \App\Models\User::where('role', 'admin')->first();
+
+        $createResponse = $this->actingAs($admin)->post('/admin/users', [
+            'name' => 'Budi Kasir Baru',
+            'email' => 'budikasir@kopisenja.id',
+            'role' => 'Kasir',
+            'password' => 'password123',
+        ]);
+        $createResponse->assertRedirect('/admin/users');
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'budikasir@kopisenja.id',
+            'role' => 'kasir',
+        ]);
+
+        $user = \App\Models\User::where('email', 'budikasir@kopisenja.id')->first();
+
+        $updateResponse = $this->actingAs($admin)->put('/admin/users/' . $user->id, [
+            'name' => 'Budi Supervisor',
+            'email' => 'budikasir@kopisenja.id',
+            'role' => 'Admin',
+        ]);
+        $updateResponse->assertRedirect('/admin/users');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'name' => 'Budi Supervisor',
+            'role' => 'admin',
+        ]);
+
+        $deleteResponse = $this->actingAs($admin)->delete('/admin/users/' . $user->id);
+        $deleteResponse->assertRedirect('/admin/users');
+
+        $this->assertDatabaseMissing('users', [
+            'id' => $user->id,
+        ]);
+    }
 }

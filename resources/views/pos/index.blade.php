@@ -548,18 +548,51 @@
                     this.isCheckoutModalOpen = true;
                 },
 
-                confirmPayment() {
+                async confirmPayment() {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const paidAmount = this.paymentMethod === 'QRIS' ? this.total() : this.cashReceived;
+                    const payload = {
+                        cart: this.cart.map(c => ({
+                            id: c.id,
+                            quantity: c.qty,
+                            price: c.price,
+                            notes: c.notes || null
+                        })),
+                        payment_method: this.paymentMethod.toLowerCase(),
+                        paid_amount: paidAmount
+                    };
+
+                    const cartCopy = JSON.parse(JSON.stringify(this.cart));
                     const now = new Date();
-                    const invoiceNum = 'INV-' + now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0') + '-' + Math.floor(1000 + Math.random() * 9000);
-                    
+                    let invoiceNum = 'INV-' + now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0') + '-' + Math.floor(1000 + Math.random() * 9000);
+
+                    try {
+                        const response = await fetch('/pos/checkout', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken
+                            },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (response.ok) {
+                            const result = await response.json();
+                            if (result.invoice_number) {
+                                invoiceNum = result.invoice_number;
+                            }
+                        }
+                    } catch (e) {}
+
                     this.receiptData = {
                         invoice: invoiceNum,
                         date: now.toLocaleDateString('id-ID') + ' ' + now.toLocaleTimeString('id-ID', { hour12: false }),
-                        items: JSON.parse(JSON.stringify(this.cart)),
+                        items: cartCopy,
                         subtotal: this.subtotal(),
                         tax: this.tax(),
                         total: this.total(),
-                        paid: this.paymentMethod === 'QRIS' ? this.total() : this.cashReceived,
+                        paid: paidAmount,
                         change: this.change(),
                         paymentMethod: this.paymentMethod
                     };

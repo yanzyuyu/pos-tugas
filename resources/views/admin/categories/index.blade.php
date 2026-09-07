@@ -73,7 +73,7 @@
                                         </button>
                                         <button 
                                             type="button" 
-                                            @click="deleteCategory('{{ $cat['name'] }}')" 
+                                            @click="deleteCategory({{ $cat['id'] }}, '{{ addslashes($cat['name']) }}')" 
                                             class="p-1.5 text-stone-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition" 
                                             title="Hapus"
                                         >
@@ -105,11 +105,17 @@
                     <button type="button" @click="isModalOpen = false" class="text-stone-400 hover:text-white font-bold">&times;</button>
                 </div>
 
-                <form @submit.prevent="saveCategory()" class="p-6 space-y-4">
+                <form :action="isEdit ? '/admin/categories/' + formData.id : '{{ route('admin.categories.store') }}'" method="POST" class="p-6 space-y-4">
+                    @csrf
+                    <template x-if="isEdit">
+                        <input type="hidden" name="_method" value="PUT">
+                    </template>
+
                     <div>
                         <label class="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5">Nama Kategori</label>
                         <input 
                             type="text" 
+                            name="name"
                             x-model="formData.name" 
                             placeholder="Contoh: Kopi Dingin, Pastry" 
                             required 
@@ -121,6 +127,7 @@
                         <label class="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5">Slug (Otomatis)</label>
                         <input 
                             type="text" 
+                            name="slug"
                             x-model="formData.slug" 
                             placeholder="kopi-dingin" 
                             class="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 font-mono text-xs bg-stone-50 focus:ring-2 focus:ring-amber-500 focus:outline-none"
@@ -170,14 +177,26 @@
                     this.isModalOpen = true;
                 },
 
-                saveCategory() {
-                    alert('Kategori ' + this.formData.name + ' berhasil disimpan!');
-                    this.isModalOpen = false;
-                },
-
-                deleteCategory(name) {
+                deleteCategory(id, name) {
                     if (confirm('Apakah Anda yakin ingin menghapus kategori ' + name + '?')) {
-                        alert('Kategori ' + name + ' berhasil dihapus.');
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = '/admin/categories/' + id;
+                        
+                        const csrf = document.createElement('input');
+                        csrf.type = 'hidden';
+                        csrf.name = '_token';
+                        csrf.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                        form.appendChild(csrf);
+
+                        const method = document.createElement('input');
+                        method.type = 'hidden';
+                        method.name = '_method';
+                        method.value = 'DELETE';
+                        form.appendChild(method);
+
+                        document.body.appendChild(form);
+                        form.submit();
                     }
                 }
             };

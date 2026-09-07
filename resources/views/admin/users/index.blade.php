@@ -79,7 +79,7 @@
                                         </button>
                                         <button 
                                             type="button" 
-                                            @click="deleteUser('{{ $u['name'] }}')" 
+                                            @click="deleteUser({{ $u['id'] }}, '{{ addslashes($u['name']) }}')" 
                                             class="p-1.5 text-stone-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition" 
                                             title="Hapus"
                                         >
@@ -111,11 +111,17 @@
                     <button type="button" @click="isModalOpen = false" class="text-stone-400 hover:text-white font-bold">&times;</button>
                 </div>
 
-                <form @submit.prevent="saveUser()" class="p-6 space-y-4">
+                <form :action="isEdit ? '/admin/users/' + formData.id : '{{ route('admin.users.store') }}'" method="POST" class="p-6 space-y-4">
+                    @csrf
+                    <template x-if="isEdit">
+                        <input type="hidden" name="_method" value="PUT">
+                    </template>
+
                     <div>
                         <label class="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5">Nama Lengkap</label>
                         <input 
                             type="text" 
+                            name="name"
                             x-model="formData.name" 
                             placeholder="Contoh: Rian Pratama" 
                             required 
@@ -127,6 +133,7 @@
                         <label class="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5">Alamat Email</label>
                         <input 
                             type="email" 
+                            name="email"
                             x-model="formData.email" 
                             placeholder="kasir2@kopisenja.id" 
                             required 
@@ -138,6 +145,7 @@
                         <div>
                             <label class="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5">Role / Hak Akses</label>
                             <select 
+                                name="role"
                                 x-model="formData.role" 
                                 class="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
                             >
@@ -150,7 +158,9 @@
                             <label class="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-1.5">Password</label>
                             <input 
                                 type="password" 
+                                name="password"
                                 x-model="formData.password" 
+                                :required="!isEdit"
                                 placeholder="******" 
                                 class="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
                             >
@@ -202,14 +212,26 @@
                     this.isModalOpen = true;
                 },
 
-                saveUser() {
-                    alert('Akun ' + this.formData.name + ' berhasil disimpan!');
-                    this.isModalOpen = false;
-                },
-
-                deleteUser(name) {
+                deleteUser(id, name) {
                     if (confirm('Hapus akun ' + name + '?')) {
-                        alert('Akun ' + name + ' berhasil dihapus.');
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = '/admin/users/' + id;
+                        
+                        const csrf = document.createElement('input');
+                        csrf.type = 'hidden';
+                        csrf.name = '_token';
+                        csrf.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                        form.appendChild(csrf);
+
+                        const method = document.createElement('input');
+                        method.type = 'hidden';
+                        method.name = '_method';
+                        method.value = 'DELETE';
+                        form.appendChild(method);
+
+                        document.body.appendChild(form);
+                        form.submit();
                     }
                 }
             };

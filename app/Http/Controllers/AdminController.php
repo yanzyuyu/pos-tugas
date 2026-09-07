@@ -8,6 +8,9 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Carbon\Carbon;
 
 class AdminController extends Controller
@@ -130,5 +133,155 @@ class AdminController extends Controller
         })->toArray();
 
         return view('admin.reports.index', compact('summary', 'dailySales'));
+    }
+
+    public function storeCategory(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'slug' => 'nullable|string|max:255|unique:categories,slug',
+        ]);
+
+        Category::create([
+            'name' => $request->name,
+            'slug' => $request->slug ? Str::slug($request->slug) : Str::slug($request->name),
+        ]);
+
+        return redirect()->route('admin.categories')->with('success', 'Kategori berhasil ditambahkan.');
+    }
+
+    public function updateCategory(Request $request, Category $category)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'slug' => 'nullable|string|max:255|unique:categories,slug,' . $category->id,
+        ]);
+
+        $category->update([
+            'name' => $request->name,
+            'slug' => $request->slug ? Str::slug($request->slug) : Str::slug($request->name),
+        ]);
+
+        return redirect()->route('admin.categories')->with('success', 'Kategori berhasil diperbarui.');
+    }
+
+    public function destroyCategory(Category $category)
+    {
+        $category->delete();
+
+        return redirect()->route('admin.categories')->with('success', 'Kategori berhasil dihapus.');
+    }
+
+    public function storeProduct(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'category' => 'required|string',
+            'price' => 'required|numeric|min:0',
+            'stock' => 'required|integer|min:0',
+            'status' => 'required|string',
+            'image' => 'nullable|string|max:1000',
+        ]);
+
+        $category = Category::where('name', $request->category)->first()
+            ?? Category::firstOrCreate(['name' => $request->category], ['slug' => Str::slug($request->category)]);
+
+        Product::create([
+            'category_id' => $category->id,
+            'name' => $request->name,
+            'price' => $request->price,
+            'stock' => $request->stock,
+            'status' => strtolower($request->status) === 'habis' ? 'habis' : 'tersedia',
+            'image' => $request->image ?? 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=500&auto=format&fit=crop&q=60',
+        ]);
+
+        return redirect()->route('admin.products')->with('success', 'Menu berhasil ditambahkan.');
+    }
+
+    public function updateProduct(Request $request, Product $product)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'category' => 'required|string',
+            'price' => 'required|numeric|min:0',
+            'stock' => 'required|integer|min:0',
+            'status' => 'required|string',
+            'image' => 'nullable|string|max:1000',
+        ]);
+
+        $category = Category::where('name', $request->category)->first()
+            ?? Category::firstOrCreate(['name' => $request->category], ['slug' => Str::slug($request->category)]);
+
+        $product->update([
+            'category_id' => $category->id,
+            'name' => $request->name,
+            'price' => $request->price,
+            'stock' => $request->stock,
+            'status' => strtolower($request->status) === 'habis' ? 'habis' : 'tersedia',
+            'image' => $request->image ?? $product->image,
+        ]);
+
+        return redirect()->route('admin.products')->with('success', 'Menu berhasil diperbarui.');
+    }
+
+    public function destroyProduct(Product $product)
+    {
+        $product->delete();
+
+        return redirect()->route('admin.products')->with('success', 'Menu berhasil dihapus.');
+    }
+
+    public function storeUser(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'role' => 'required|string',
+            'password' => 'required|string|min:6',
+        ]);
+
+        User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'role' => strtolower($request->role) === 'admin' ? 'admin' : 'kasir',
+            'password' => Hash::make($request->password),
+        ]);
+
+        return redirect()->route('admin.users')->with('success', 'Akun berhasil ditambahkan.');
+    }
+
+    public function updateUser(Request $request, User $user)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $user->id,
+            'role' => 'required|string',
+            'password' => 'nullable|string|min:6',
+        ]);
+
+        $data = [
+            'name' => $request->name,
+            'email' => $request->email,
+            'role' => strtolower($request->role) === 'admin' ? 'admin' : 'kasir',
+        ];
+
+        if ($request->filled('password')) {
+            $data['password'] = Hash::make($request->password);
+        }
+
+        $user->update($data);
+
+        return redirect()->route('admin.users')->with('success', 'Akun berhasil diperbarui.');
+    }
+
+    public function destroyUser(User $user)
+    {
+        if ($user->id === Auth::id()) {
+            return redirect()->route('admin.users')->with('error', 'Tidak dapat menghapus akun yang sedang digunakan.');
+        }
+
+        $user->delete();
+
+        return redirect()->route('admin.users')->with('success', 'Akun berhasil dihapus.');
     }
 }
